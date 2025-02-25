@@ -7,7 +7,8 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fix 1: Using minified Tailwind CSS instead of the dev CDN -->
+  <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
   <style>
     body, html {
@@ -38,6 +39,30 @@
       overflow: auto;
       z-index: 1000;
       display: none;
+    }
+    /* Add custom background gradients that don't depend on Tailwind */
+    .bg-blue-gradient {
+      background: linear-gradient(to right, #4299e1, #3182ce);
+    }
+    .bg-day-clear {
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+    }
+    .bg-morning-clear {
+      background: linear-gradient(to right, #ffd166, #118ab2);
+    }
+    .bg-evening-clear {
+      background: linear-gradient(to right, #ff9e68, #9561e2);
+    }
+    .bg-night-clear {
+      background: linear-gradient(to right, #2b4162, #12100e);
+    }
+    .bg-clouds {
+      background: linear-gradient(to right, #bdc3c7, #2c3e50);
+    }
+    .glass-card {
+      background-color: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(5px);
+      border-radius: 0.5rem;
     }
   </style>
 </head>
@@ -191,8 +216,10 @@
                         components.state;
             setLocation(city);
             
-            // Set country code
-            setCountryCode(components.country_code?.toUpperCase() || '');
+            // Fix 2: Remove optional chaining operator (?.) that was causing Babel errors
+            // Original: setCountryCode(components.country_code?.toUpperCase() || '');
+            const countryCodeValue = components.country_code ? components.country_code.toUpperCase() : '';
+            setCountryCode(countryCodeValue);
             
             // Determine location type based on OpenCage categories or components
             if (components.city) {
@@ -208,10 +235,14 @@
             } else if (components.forest || components.woodland) {
               setLocationType('forest');
             } else {
-              // Check if it's near water
-              const isNearWater = result.annotations?.DMS?.lat.includes('N') && 
+              // Check if it's near water - Fix: removed optional chaining
+              const isNearWater = result.annotations && 
+                                 result.annotations.DMS && 
+                                 result.annotations.DMS.lat &&
+                                 result.annotations.DMS.lat.includes('N') && 
                                  (Math.abs(lat) < 30) && // Within tropical or subtropical zones
-                                 result.annotations?.DMS?.lng.includes('E');
+                                 result.annotations.DMS.lng &&
+                                 result.annotations.DMS.lng.includes('E');
               
               if (isNearWater) {
                 setLocationType('tropical');
@@ -262,81 +293,31 @@
         }
       };
 
+      // Simplified getBackgroundStyle that doesn't rely as much on Tailwind classes
       const getBackgroundStyle = () => {
-        // Base styles for different weather conditions
-        const weatherStyles = {
-          Clear: {
-            morning: 'from-yellow-300 to-blue-300',
-            day: 'from-blue-400 to-blue-600',
-            evening: 'from-orange-400 to-purple-600',
-            night: 'from-blue-900 to-purple-900'
-          },
-          Clouds: {
-            morning: 'from-gray-300 to-blue-300',
-            day: 'from-gray-300 to-blue-400',
-            evening: 'from-gray-400 to-purple-500',
-            night: 'from-gray-800 to-blue-900'
-          },
-          Rain: {
-            morning: 'from-gray-400 to-blue-500',
-            day: 'from-gray-500 to-blue-600',
-            evening: 'from-gray-600 to-blue-700',
-            night: 'from-gray-800 to-blue-900'
-          },
-          Snow: {
-            morning: 'from-gray-100 to-blue-200',
-            day: 'from-gray-200 to-blue-300',
-            evening: 'from-gray-300 to-purple-400',
-            night: 'from-gray-400 to-blue-800'
-          },
-          Thunderstorm: {
-            morning: 'from-gray-600 to-purple-700',
-            day: 'from-gray-700 to-purple-800',
-            evening: 'from-gray-800 to-purple-900',
-            night: 'from-gray-900 to-purple-950'
-          },
-          Drizzle: {
-            morning: 'from-gray-300 to-blue-400',
-            day: 'from-gray-400 to-blue-500',
-            evening: 'from-gray-500 to-blue-600',
-            night: 'from-gray-700 to-blue-800'
-          },
-          Mist: {
-            morning: 'from-gray-300 to-blue-300',
-            day: 'from-gray-400 to-blue-400',
-            evening: 'from-gray-500 to-purple-500',
-            night: 'from-gray-700 to-blue-800'
-          }
-        };
-        
-        // Location-specific modifiers
-        const locationModifiers = {
-          city: '',
-          rural: 'via-green-400',
-          coastal: 'via-cyan-400',
-          mountains: 'via-indigo-400',
-          desert: 'via-yellow-400',
-          forest: 'via-green-600',
-          tropical: 'via-teal-400'
-        };
-        
         const weatherType = weatherData?.main || 'Clear';
-        const baseGradient = weatherStyles[weatherType]?.[timeOfDay] || 
-                            weatherStyles.Clear[timeOfDay];
         
-        const locationModifier = locationModifiers[locationType] || '';
+        // Create a simple class mapping
+        if (weatherType === 'Clear') {
+          if (timeOfDay === 'morning') return 'bg-morning-clear';
+          if (timeOfDay === 'evening') return 'bg-evening-clear';
+          if (timeOfDay === 'night') return 'bg-night-clear';
+          return 'bg-day-clear';
+        }
         
-        // Combine weather and location styles
-        const gradientClasses = locationModifier ? 
-          `bg-gradient-to-br ${baseGradient} ${locationModifier}` : 
-          `bg-gradient-to-r ${baseGradient}`;
+        if (weatherType === 'Clouds' || weatherType === 'Rain' || 
+            weatherType === 'Drizzle' || weatherType === 'Mist' ||
+            weatherType === 'Fog' || weatherType === 'Haze') {
+          return 'bg-clouds';
+        }
         
-        return gradientClasses;
+        // Default
+        return 'bg-blue-gradient';
       };
 
       if (loading) {
         return (
-          <div className="flex items-center justify-center w-full h-full bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center justify-center w-full h-full bg-blue-gradient text-white rounded-lg shadow-lg p-6">
             <div className="text-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-2"></div>
               <p>{statusMessage}</p>
@@ -378,8 +359,8 @@
       };
 
       return (
-        <div className={`w-full h-full ${getBackgroundStyle()} text-white rounded-lg shadow-lg overflow-hidden transition-all duration-500`}>
-          <div className="p-6 h-full flex flex-col relative backdrop-blur-sm bg-black bg-opacity-10">
+        <div className={`w-full h-full ${getBackgroundStyle()} text-white rounded-lg shadow-lg overflow-hidden`}>
+          <div className="p-6 h-full flex flex-col relative glass-card">
             {/* Demo mode toggle and debug button */}
             <div className="absolute top-2 right-2 z-20 flex gap-2">
               <button 
@@ -405,7 +386,7 @@
             
             {/* Location decorations based on type */}
             {locationType === 'city' && (
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-black bg-opacity-20 backdrop-blur-sm">
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-black bg-opacity-20">
                 <div className="w-full h-full flex items-end justify-around">
                   <div className="w-6 h-12 bg-white bg-opacity-20 rounded-t"></div>
                   <div className="w-8 h-16 bg-white bg-opacity-20 rounded-t"></div>
@@ -459,7 +440,7 @@
             
             {/* Weather details */}
             <div className="grid grid-cols-4 gap-2 mt-2 z-10">
-              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+              <div className="flex flex-col items-center glass-card p-2">
                 <div className="flex items-center text-sm mb-1">
                   <Thermometer className="h-4 w-4 mr-1" />
                   <span>Feels</span>
@@ -467,7 +448,7 @@
                 <span className="font-bold">{weatherData?.feels_like || '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+              <div className="flex flex-col items-center glass-card p-2">
                 <div className="flex items-center text-sm mb-1">
                   <Sun className="h-4 w-4 mr-1" />
                   <span>High</span>
@@ -475,7 +456,7 @@
                 <span className="font-bold">{weatherData?.temp_max || '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+              <div className="flex flex-col items-center glass-card p-2">
                 <div className="flex items-center text-sm mb-1">
                   <Droplets className="h-4 w-4 mr-1" />
                   <span>Low</span>
@@ -483,7 +464,7 @@
                 <span className="font-bold">{weatherData?.temp_min || '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+              <div className="flex flex-col items-center glass-card p-2">
                 <div className="flex items-center text-sm mb-1">
                   <Wind className="h-4 w-4 mr-1" />
                   <span>Wind</span>
