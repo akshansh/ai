@@ -2,7 +2,7 @@ let particles = [];
 let textPoints = [];
 let font;
 let message = "Akshansh";
-let fontSize = 72; // Much larger font size
+let fontSize = 200; // Much larger font size
 let repelRadius = 120;
 let repelStrength = 12;
 let sampleFactor = 0.15; // Lower for more points/detail
