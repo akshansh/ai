@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Weather Widget</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    #root {
+      height: 100%;
+      width: 100%;
+    }
+    .clip-triangle {
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { Cloud, Thermometer, Sun, Droplets, MapPin, Wind } = window.LucideReact;
+    
+    // Directly insert your API keys here (or leave as is for demo mode)
+    const openWeatherMapApiKey = 'f5aa6727832f8af0e6b896eca32ed755'; // Replace with your actual OpenWeatherMap API key
+    const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc'; // Replace with your actual OpenCage API key
+
+    const WeatherWidget = () => {
+      // Set useDemo to true to use demo data without API calls
+      const [useDemo, setUseDemo] = useState(true);
+      
+      const [weatherData, setWeatherData] = useState(null);
+      const [location, setLocation] = useState('');
+      const [countryCode, setCountryCode] = useState('');
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [timeOfDay, setTimeOfDay] = useState('day');
+      const [locationType, setLocationType] = useState('city');
+
+      // Debug logging
+      useEffect(() => {
+        if (weatherData) {
+          console.log('Weather Data:', weatherData);
+          console.log('Location:', location);
+          console.log('Country Code:', countryCode);
+          console.log('Location Type:', locationType);
+          console.log('Time of Day:', timeOfDay);
+          console.log('Error State:', error);
+        }
+      }, [weatherData, location, countryCode, locationType, timeOfDay, error]);
+
+      useEffect(() => {
+        // If demo mode is enabled, use predefined data
+        if (useDemo) {
+          console.log('Using demo mode with sample data');
+          setWeatherData({
+            temp: 22,
+            feels_like: 24,
+            temp_min: 18,
+            temp_max: 27,
+            description: 'scattered clouds',
+            main: 'Clouds',
+            wind: 3.5,
+            humidity: 65,
+            icon: '03d'
+          });
+          setLocation('New Delhi');
+          setCountryCode('IN');
+          setTimeOfDay('day');
+          setLocationType('city');
+          setLoading(false);
+          return;
+        }
+        
+        // Only proceed with API calls if demo mode is off
+        console.log('Live mode: attempting to get location and weather data');
+        
+        // Get user's location
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            position => {
+              const { latitude, longitude } = position.coords;
+              console.log('Got coordinates:', latitude, longitude);
+              fetchWeatherData(latitude, longitude);
+              fetchLocationDetails(latitude, longitude);
+              determineTimeOfDay();
+            },
+            err => {
+              console.error('Geolocation error:', err);
+              setError('Unable to retrieve your location. Please enable location services.');
+              setLoading(false);
+            }
+          );
+        } else {
+          console.error('Geolocation not supported');
+          setError('Geolocation is not supported by your browser.');
+          setLoading(false);
+        }
+      }, [useDemo]);
+
+      const determineTimeOfDay = () => {
+        const now = new Date();
+        const hour = now.getHours();
+        console.log('Current hour:', hour);
+        
+        if (hour >= 5 && hour < 12) {
+          setTimeOfDay('morning');
+        } else if (hour >= 12 && hour < 17) {
+          setTimeOfDay('day');
+        } else if (hour >= 17 && hour < 20) {
+          setTimeOfDay('evening');
+        } else {
+          setTimeOfDay('night');
+        }
+      };
+
+      const fetchLocationDetails = async (lat, lon) => {
+        try {
+          console.log('Fetching location with OpenCage API');
+          const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${opencageApiKey}`);
+          
+          if (!response.ok) {
+            throw new Error(`OpenCage API returned status ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('OpenCage response:', data);
+          
+          if (data.results && data.results.length > 0) {
+            const result = data.results[0];
+            const components = result.components;
+            
+            // Set location name
+            const city = components.city || 
+                        components.town || 
+                        components.village || 
+                        components.state;
+            setLocation(city);
+            
+            // Set country code
+            setCountryCode(components.country_code?.toUpperCase() || '');
+            
+            // Determine location type based on OpenCage categories or components
+            if (components.city) {
+              setLocationType('city');
+            } else if (components.village || components.hamlet) {
+              setLocationType('rural');
+            } else if (components.coast || components.sea || components.ocean) {
+              setLocationType('coastal');
+            } else if (components.mountain || components.peak) {
+              setLocationType('mountains');
+            } else if (components.desert) {
+              setLocationType('desert');
+            } else if (components.forest || components.woodland) {
+              setLocationType('forest');
+            } else {
+              // Check if it's near water
+              const isNearWater = result.annotations?.DMS?.lat.includes('N') && 
+                                 (Math.abs(lat) < 30) && // Within tropical or subtropical zones
+                                 result.annotations?.DMS?.lng.includes('E');
+              
+              if (isNearWater) {
+                setLocationType('tropical');
+              }
+            }
+          } else {
+            console.error('No results found in OpenCage response');
+          }
+        } catch (error) {
+          console.error('Error fetching location details:', error);
+        }
+      };
+
+      const fetchWeatherData = async (lat, lon) => {
+        try {
+          console.log('Fetching weather with OpenWeatherMap API');
+          const response = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${openWeatherMapApiKey}`
+          );
+          
+          if (!response.ok) {
+            throw new Error(`OpenWeatherMap API returned status ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('OpenWeatherMap response:', data);
+          
+          setWeatherData({
+            temp: Math.round(data.main.temp),
+            feels_like: Math.round(data.main.feels_like),
+            temp_min: Math.round(data.main.temp_min),
+            temp_max: Math.round(data.main.temp_max),
+            description: data.weather[0].description,
+            main: data.weather[0].main,
+            wind: data.wind.speed,
+            humidity: data.main.humidity,
+            icon: data.weather[0].icon
+          });
+          setLoading(false);
+        } catch (error) {
+          console.error('Error fetching weather data:', error);
+          setError('Error fetching weather data. Please try again later.');
+          setLoading(false);
+        }
+      };
+
+      const getBackgroundStyle = () => {
+        // Base styles for different weather conditions
+        const weatherStyles = {
+          Clear: {
+            morning: 'from-yellow-300 to-blue-300',
+            day: 'from-blue-400 to-blue-600',
+            evening: 'from-orange-400 to-purple-600',
+            night: 'from-blue-900 to-purple-900'
+          },
+          Clouds: {
+            morning: 'from-gray-300 to-blue-300',
+            day: 'from-gray-300 to-blue-400',
+            evening: 'from-gray-400 to-purple-500',
+            night: 'from-gray-800 to-blue-900'
+          },
+          Rain: {
+            morning: 'from-gray-400 to-blue-500',
+            day: 'from-gray-500 to-blue-600',
+            evening: 'from-gray-600 to-blue-700',
+            night: 'from-gray-800 to-blue-900'
+          },
+          Snow: {
+            morning: 'from-gray-100 to-blue-200',
+            day: 'from-gray-200 to-blue-300',
+            evening: 'from-gray-300 to-purple-400',
+            night: 'from-gray-400 to-blue-800'
+          },
+          Thunderstorm: {
+            morning: 'from-gray-600 to-purple-700',
+            day: 'from-gray-700 to-purple-800',
+            evening: 'from-gray-800 to-purple-900',
+            night: 'from-gray-900 to-purple-950'
+          },
+          Drizzle: {
+            morning: 'from-gray-300 to-blue-400',
+            day: 'from-gray-400 to-blue-500',
+            evening: 'from-gray-500 to-blue-600',
+            night: 'from-gray-700 to-blue-800'
+          },
+          Mist: {
+            morning: 'from-gray-300 to-blue-300',
+            day: 'from-gray-400 to-blue-400',
+            evening: 'from-gray-500 to-purple-500',
+            night: 'from-gray-700 to-blue-800'
+          }
+        };
+        
+        // Location-specific modifiers
+        const locationModifiers = {
+          city: '',
+          rural: 'via-green-400',
+          coastal: 'via-cyan-400',
+          mountains: 'via-indigo-400',
+          desert: 'via-yellow-400',
+          forest: 'via-green-600',
+          tropical: 'via-teal-400'
+        };
+        
+        const weatherType = weatherData?.main || 'Clear';
+        const baseGradient = weatherStyles[weatherType]?.[timeOfDay] || 
+                            weatherStyles.Clear[timeOfDay];
+        
+        const locationModifier = locationModifiers[locationType] || '';
+        
+        // Combine weather and location styles
+        const gradientClasses = locationModifier ? 
+          `bg-gradient-to-br ${baseGradient} ${locationModifier}` : 
+          `bg-gradient-to-r ${baseGradient}`;
+        
+        return gradientClasses;
+      };
+
+      if (loading) {
+        return (
+          <div className="flex items-center justify-center w-full h-full bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg shadow-lg p-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-2"></div>
+              <p>Fetching weather data...</p>
+            </div>
+          </div>
+        );
+      }
+
+      const getWeatherIcon = () => {
+        const main = weatherData?.main;
+        if (main === 'Clear') {
+          return timeOfDay === 'night' ? '🌙' : '☀️';
+        } else if (main === 'Clouds') {
+          return '☁️';
+        } else if (main === 'Rain') {
+          return '🌧️';
+        } else if (main === 'Snow') {
+          return '❄️';
+        } else if (main === 'Thunderstorm') {
+          return '⛈️';
+        } else if (main === 'Drizzle') {
+          return '🌦️';
+        } else if (main === 'Mist' || main === 'Fog' || main === 'Haze') {
+          return '🌫️';
+        }
+        return '🌤️';
+      };
+
+      // Toggle button to switch between demo and live
+      const toggleDemoMode = () => {
+        setUseDemo(!useDemo);
+        setLoading(true); // Restart loading process
+      };
+
+      return (
+        <div className={`w-full h-full ${getBackgroundStyle()} text-white rounded-lg shadow-lg overflow-hidden transition-all duration-500`}>
+          <div className="p-6 h-full flex flex-col relative backdrop-blur-sm bg-black bg-opacity-10">
+            {/* Demo mode toggle (for testing) */}
+            <div className="absolute top-2 right-2 z-20">
+              <button 
+                onClick={toggleDemoMode}
+                className="text-xs bg-black bg-opacity-30 px-2 py-1 rounded hover:bg-opacity-50"
+              >
+                {useDemo ? "Try Live Data" : "Use Demo Data"}
+              </button>
+            </div>
+            
+            {/* Location decorations based on type */}
+            {locationType === 'city' && (
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-black bg-opacity-20 backdrop-blur-sm">
+                <div className="w-full h-full flex items-end justify-around">
+                  <div className="w-6 h-12 bg-white bg-opacity-20 rounded-t"></div>
+                  <div className="w-8 h-16 bg-white bg-opacity-20 rounded-t"></div>
+                  <div className="w-12 h-10 bg-white bg-opacity-20 rounded-t"></div>
+                  <div className="w-10 h-14 bg-white bg-opacity-20 rounded-t"></div>
+                  <div className="w-7 h-8 bg-white bg-opacity-20 rounded-t"></div>
+                </div>
+              </div>
+            )}
+            
+            {locationType === 'mountains' && (
+              <div className="absolute bottom-0 left-0 right-0 h-20 flex items-end">
+                <div className="w-full h-full flex items-end">
+                  <div className="w-1/3 h-20 bg-white bg-opacity-10 clip-triangle transform translate-y-2"></div>
+                  <div className="w-1/4 h-16 bg-white bg-opacity-10 clip-triangle transform -translate-x-8"></div>
+                  <div className="w-1/2 h-12 bg-white bg-opacity-10 clip-triangle transform -translate-x-16 translate-y-4"></div>
+                </div>
+              </div>
+            )}
+            
+            {locationType === 'coastal' && (
+              <div className="absolute bottom-0 left-0 right-0 h-12">
+                <div className="w-full h-full flex items-end">
+                  <div className="w-full h-6 bg-white bg-opacity-20 rounded-t-full"></div>
+                </div>
+              </div>
+            )}
+            
+            {/* Header with location */}
+            <div className="flex items-center justify-between mb-2 z-10">
+              <div className="flex items-center">
+                <MapPin className="h-5 w-5 mr-1" />
+                <h2 className="text-2xl font-bold">{location || 'Weather'}</h2>
+                {countryCode && <span className="ml-1 text-sm bg-white bg-opacity-20 px-1 rounded">{countryCode}</span>}
+              </div>
+              <div className="flex items-center text-sm">
+                <span>{weatherData?.description || 'Weather data'}</span>
+              </div>
+            </div>
+            
+            {/* Main temperature display */}
+            <div className="flex-1 flex items-center justify-center z-10">
+              <div className="flex items-center">
+                <span className="text-6xl mr-4">{getWeatherIcon()}</span>
+                <div className="text-7xl font-bold flex items-start">
+                  {weatherData?.temp || '--'}
+                  <span className="text-3xl mt-1">°C</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Weather details */}
+            <div className="grid grid-cols-4 gap-2 mt-2 z-10">
+              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+                <div className="flex items-center text-sm mb-1">
+                  <Thermometer className="h-4 w-4 mr-1" />
+                  <span>Feels</span>
+                </div>
+                <span className="font-bold">{weatherData?.feels_like || '--'}°C</span>
+              </div>
+              
+              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+                <div className="flex items-center text-sm mb-1">
+                  <Sun className="h-4 w-4 mr-1" />
+                  <span>High</span>
+                </div>
+                <span className="font-bold">{weatherData?.temp_max || '--'}°C</span>
+              </div>
+              
+              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+                <div className="flex items-center text-sm mb-1">
+                  <Droplets className="h-4 w-4 mr-1" />
+                  <span>Low</span>
+                </div>
+                <span className="font-bold">{weatherData?.temp_min || '--'}°C</span>
+              </div>
+              
+              <div className="flex flex-col items-center bg-black bg-opacity-20 backdrop-blur-sm rounded-lg p-2">
+                <div className="flex items-center text-sm mb-1">
+                  <Wind className="h-4 w-4 mr-1" />
+                  <span>Wind</span>
+                </div>
+                <span className="font-bold">{weatherData?.wind || '--'} m/s</span>
+              </div>
+            </div>
+            
+            {/* Error message if any */}
+            {error && (
+              <div className="absolute bottom-4 left-4 right-4 bg-red-500 bg-opacity-80 text-white p-2 rounded z-20 text-sm">
+                {error}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<WeatherWidget />, document.getElementById('root'));
+  </script>
+</body>
+</html>
