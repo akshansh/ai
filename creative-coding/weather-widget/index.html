@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Location-Based Weather Widget</title>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <title>Weather Widget</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-  <!-- Fix 1: Using minified Tailwind CSS instead of the dev CDN -->
-  <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
+  <!-- No Tailwind, we'll use our own CSS -->
   <style>
     body, html {
       margin: 0;
@@ -17,112 +15,315 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     #root {
       height: 100%;
       width: 100%;
     }
-    .clip-triangle {
-      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-    }
-    #error-log {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0,0,0,0.7);
+    .weather-container {
+      width: 100%;
+      height: 100%;
       color: white;
-      font-family: monospace;
-      font-size: 12px;
-      padding: 10px;
-      max-height: 100px;
-      overflow: auto;
-      z-index: 1000;
-      display: none;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
-    /* Add custom background gradients that don't depend on Tailwind */
-    .bg-blue-gradient {
-      background: linear-gradient(to right, #4299e1, #3182ce);
-    }
-    .bg-day-clear {
-      background: linear-gradient(to right, #4facfe, #00f2fe);
-    }
-    .bg-morning-clear {
-      background: linear-gradient(to right, #ffd166, #118ab2);
-    }
-    .bg-evening-clear {
-      background: linear-gradient(to right, #ff9e68, #9561e2);
-    }
-    .bg-night-clear {
-      background: linear-gradient(to right, #2b4162, #12100e);
-    }
-    .bg-clouds {
-      background: linear-gradient(to right, #bdc3c7, #2c3e50);
+    .weather-content {
+      padding: 24px;
+      height: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background-color: rgba(0,0,0,0.1);
     }
     .glass-card {
       background-color: rgba(255, 255, 255, 0.2);
       backdrop-filter: blur(5px);
-      border-radius: 0.5rem;
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .location-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      z-index: 10;
+    }
+    .location-name {
+      display: flex;
+      align-items: center;
+    }
+    .location-name h2 {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 0 4px;
+    }
+    .country-badge {
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 4px;
+    }
+    .temp-display {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .temp-display-inner {
+      display: flex;
+      align-items: center;
+    }
+    .weather-icon {
+      font-size: 60px;
+      margin-right: 16px;
+    }
+    .temp-value {
+      font-size: 70px;
+      font-weight: bold;
+      display: flex;
+      align-items: start;
+    }
+    .temp-unit {
+      font-size: 30px;
+      margin-top: 8px;
+    }
+    .weather-details {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+      z-index: 10;
+    }
+    .weather-detail-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .detail-value {
+      font-weight: bold;
+    }
+    .control-panel {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+    }
+    .status-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      font-size: 12px;
+      background-color: rgba(0,0,0,0.3);
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .button {
+      font-size: 12px;
+      background-color: rgba(0,0,0,0.3);
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .button:hover {
+      background-color: rgba(0,0,0,0.5);
+    }
+    .error-message {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background-color: rgba(220, 38, 38, 0.8);
+      color: white;
+      padding: 8px;
+      border-radius: 4px;
+      z-index: 20;
+      font-size: 14px;
+    }
+    .loading-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 24px;
+    }
+    .loading-content {
+      text-align: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,0.1);
+      border-top-color: white;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Weather backgrounds */
+    .bg-day-clear { background: linear-gradient(to right, #4facfe, #00f2fe); }
+    .bg-morning-clear { background: linear-gradient(to right, #ffd166, #118ab2); }
+    .bg-evening-clear { background: linear-gradient(to right, #ff9e68, #9561e2); }
+    .bg-night-clear { background: linear-gradient(to right, #2b4162, #12100e); }
+    .bg-clouds { background: linear-gradient(to right, #bdc3c7, #2c3e50); }
+    .bg-rain { background: linear-gradient(to right, #616161, #4286f4); }
+    
+    /* Location decorations */
+    .city-decoration {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background-color: rgba(0,0,0,0.2);
+    }
+    .city-buildings {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+    }
+    .building {
+      background-color: rgba(255,255,255,0.2);
+      border-top-left-radius: 4px;
+      border-top-right-radius: 4px;
+    }
+    .mountain-decoration {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+    }
+    .mountains {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+    }
+    .mountain {
+      background-color: rgba(255,255,255,0.1);
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    }
+    .coastal-decoration {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+    }
+    .wave {
+      width: 100%;
+      height: 24px;
+      background-color: rgba(255,255,255,0.2);
+      border-top-left-radius: 100%;
+      border-top-right-radius: 100%;
+    }
+    
+    /* Debug console */
+    #debug-console {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.8);
+      color: #00ff00;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  <div id="error-log"></div>
+  <div id="debug-console"></div>
   
-  <!-- Helper function to log errors visibly -->
   <script>
-    // Create a visible error log for debugging
-    function logError(message) {
-      const errorLog = document.getElementById('error-log');
-      errorLog.style.display = 'block';
-      errorLog.innerHTML += message + '<br>';
-      console.error(message);
+    // Create a debug console
+    function debug(message) {
+      const console = document.getElementById('debug-console');
+      const line = document.createElement('div');
+      line.textContent = `> ${message}`;
+      console.appendChild(line);
+      console.scrollTop = console.scrollHeight;
     }
     
-    // Capture global errors
+    // Global error handler
     window.onerror = function(message, source, lineno, colno, error) {
-      logError(`ERROR: ${message} at ${source}:${lineno}:${colno}`);
+      debug(`ERROR: ${message} at ${source}:${lineno}:${colno}`);
+      const console = document.getElementById('debug-console');
+      console.style.display = 'block';
       return false;
     };
   </script>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
-    const { Cloud, Thermometer, Sun, Droplets, MapPin, Wind } = window.LucideReact;
-    
-    // API keys
-    const openWeatherMapApiKey = 'f5aa6727832f8af0e6b896eca32ed755';
-    const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc';
-
-    // Force HTTPS for all API calls
-    function ensureHttps(url) {
-      return url.replace('http://', 'https://');
-    }
-
-    const WeatherWidget = () => {
-      // Always start with demo mode true - this ensures we show something
-      const [useDemo, setUseDemo] = useState(true);
-      const [weatherData, setWeatherData] = useState(null);
-      const [location, setLocation] = useState('');
-      const [countryCode, setCountryCode] = useState('');
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
-      const [timeOfDay, setTimeOfDay] = useState('day');
-      const [locationType, setLocationType] = useState('city');
-      const [statusMessage, setStatusMessage] = useState('Initializing...');
-
-      // Set up demo data immediately to avoid white screen
-      useEffect(() => {
-        setDemoData();
-        // Try to load real data after demo is shown
-        if (!useDemo) {
-          tryLoadRealData();
+    // Simple version without any complex syntax
+    function WeatherWidget() {
+      const [weatherData, setWeatherData] = React.useState(null);
+      const [location, setLocation] = React.useState('');
+      const [countryCode, setCountryCode] = React.useState('');
+      const [loading, setLoading] = React.useState(true);
+      const [error, setError] = React.useState(null);
+      const [timeOfDay, setTimeOfDay] = React.useState('day');
+      const [locationType, setLocationType] = React.useState('city');
+      const [status, setStatus] = React.useState('Initializing...');
+      const [useDemo, setUseDemo] = React.useState(true);
+      
+      // API keys
+      const openWeatherMapApiKey = 'f5aa6727832f8af0e6b896eca32ed755';
+      const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc';
+      
+      // Helper to log to the debug console
+      function logDebug(message) {
+        debug(message);
+        console.log(message);
+      }
+      
+      // Helper to force HTTPS
+      function ensureHttps(url) {
+        return url.replace('http://', 'https://');
+      }
+      
+      // Load demo data
+      React.useEffect(function() {
+        if (useDemo) {
+          loadDemoData();
+        } else {
+          loadRealData();
         }
       }, [useDemo]);
-
-      // Function to set demo data
-      const setDemoData = () => {
+      
+      function loadDemoData() {
+        logDebug('Loading demo data');
         setWeatherData({
           temp: 22,
           feels_like: 24,
@@ -131,54 +332,53 @@
           description: 'scattered clouds',
           main: 'Clouds',
           wind: 3.5,
-          humidity: 65,
-          icon: '03d'
+          humidity: 65
         });
         setLocation('New Delhi');
         setCountryCode('IN');
         setTimeOfDay('day');
         setLocationType('city');
         setLoading(false);
-        setStatusMessage('Using demo data');
-      };
-
-      // Function to try loading real data
-      const tryLoadRealData = () => {
-        try {
-          setStatusMessage('Requesting location permission...');
-          
-          if (!navigator.geolocation) {
-            throw new Error('Geolocation is not supported by your browser');
-          }
-          
-          navigator.geolocation.getCurrentPosition(
-            position => {
-              setStatusMessage('Location permission granted');
-              const { latitude, longitude } = position.coords;
-              fetchWeatherData(latitude, longitude);
-              fetchLocationDetails(latitude, longitude);
-              determineTimeOfDay();
-            },
-            err => {
-              setStatusMessage(`Location error: ${err.message}`);
-              logError(`Geolocation error (${err.code}): ${err.message}`);
-              setError('Location access denied. Please enable location services and reload.');
-              setLoading(false);
-            },
-            { timeout: 10000, maximumAge: 60000 }
-          );
-        } catch (err) {
-          setStatusMessage(`Error: ${err.message}`);
-          logError(`General error: ${err.message}`);
-          setError('Could not initialize location services. Using demo data instead.');
+        setStatus('Demo mode');
+      }
+      
+      function loadRealData() {
+        logDebug('Attempting to load real data');
+        setStatus('Requesting location...');
+        
+        if (!navigator.geolocation) {
+          logDebug('Geolocation not supported');
+          setError('Geolocation is not supported by your browser');
           setLoading(false);
+          return;
         }
-      };
-
-      const determineTimeOfDay = () => {
-        const now = new Date();
-        const hour = now.getHours();
-        setStatusMessage(`Current hour: ${hour}`);
+        
+        navigator.geolocation.getCurrentPosition(
+          function(position) {
+            var latitude = position.coords.latitude;
+            var longitude = position.coords.longitude;
+            logDebug('Got coordinates: ' + latitude + ', ' + longitude);
+            
+            fetchWeatherData(latitude, longitude);
+            fetchLocationData(latitude, longitude);
+            determineTimeOfDay();
+          },
+          function(err) {
+            logDebug('Geolocation error: ' + err.message);
+            setError('Location access denied. Please enable location services.');
+            loadDemoData();
+          },
+          { 
+            timeout: 10000,
+            maximumAge: 60000
+          }
+        );
+      }
+      
+      function determineTimeOfDay() {
+        var now = new Date();
+        var hour = now.getHours();
+        logDebug('Current hour: ' + hour);
         
         if (hour >= 5 && hour < 12) {
           setTimeOfDay('morning');
@@ -189,115 +389,101 @@
         } else {
           setTimeOfDay('night');
         }
-      };
-
-      const fetchLocationDetails = async (lat, lon) => {
-        try {
-          setStatusMessage('Fetching location details...');
-          const url = ensureHttps(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${opencageApiKey}`);
-          
-          const response = await fetch(url);
-          
-          if (!response.ok) {
-            throw new Error(`OpenCage API returned status ${response.status}`);
-          }
-          
-          const data = await response.json();
-          setStatusMessage('Location data received');
-          
-          if (data.results && data.results.length > 0) {
-            const result = data.results[0];
-            const components = result.components;
+      }
+      
+      function fetchWeatherData(lat, lon) {
+        setStatus('Fetching weather...');
+        var url = ensureHttps('https://api.openweathermap.org/data/2.5/weather?lat=' + 
+                             lat + '&lon=' + lon + '&units=metric&appid=' + openWeatherMapApiKey);
+                             
+        logDebug('Fetching weather from: ' + url);
+        
+        fetch(url)
+          .then(function(response) {
+            if (!response.ok) {
+              throw new Error('Weather API returned status ' + response.status);
+            }
+            return response.json();
+          })
+          .then(function(data) {
+            logDebug('Received weather data');
+            setWeatherData({
+              temp: Math.round(data.main.temp),
+              feels_like: Math.round(data.main.feels_like),
+              temp_min: Math.round(data.main.temp_min),
+              temp_max: Math.round(data.main.temp_max),
+              description: data.weather[0].description,
+              main: data.weather[0].main,
+              wind: data.wind.speed,
+              humidity: data.main.humidity
+            });
+            setLoading(false);
+            setError(null);
+          })
+          .catch(function(error) {
+            logDebug('Weather error: ' + error.message);
+            setError('Error getting weather data: ' + error.message);
+            loadDemoData();
+          });
+      }
+      
+      function fetchLocationData(lat, lon) {
+        setStatus('Fetching location...');
+        var url = ensureHttps('https://api.opencagedata.com/geocode/v1/json?q=' + 
+                             lat + '+' + lon + '&key=' + opencageApiKey);
+                             
+        logDebug('Fetching location from: ' + url);
+        
+        fetch(url)
+          .then(function(response) {
+            if (!response.ok) {
+              throw new Error('Location API returned status ' + response.status);
+            }
+            return response.json();
+          })
+          .then(function(data) {
+            logDebug('Received location data');
             
-            // Set location name
-            const city = components.city || 
-                        components.town || 
-                        components.village || 
-                        components.state;
-            setLocation(city);
-            
-            // Fix 2: Remove optional chaining operator (?.) that was causing Babel errors
-            // Original: setCountryCode(components.country_code?.toUpperCase() || '');
-            const countryCodeValue = components.country_code ? components.country_code.toUpperCase() : '';
-            setCountryCode(countryCodeValue);
-            
-            // Determine location type based on OpenCage categories or components
-            if (components.city) {
-              setLocationType('city');
-            } else if (components.village || components.hamlet) {
-              setLocationType('rural');
-            } else if (components.coast || components.sea || components.ocean) {
-              setLocationType('coastal');
-            } else if (components.mountain || components.peak) {
-              setLocationType('mountains');
-            } else if (components.desert) {
-              setLocationType('desert');
-            } else if (components.forest || components.woodland) {
-              setLocationType('forest');
-            } else {
-              // Check if it's near water - Fix: removed optional chaining
-              const isNearWater = result.annotations && 
-                                 result.annotations.DMS && 
-                                 result.annotations.DMS.lat &&
-                                 result.annotations.DMS.lat.includes('N') && 
-                                 (Math.abs(lat) < 30) && // Within tropical or subtropical zones
-                                 result.annotations.DMS.lng &&
-                                 result.annotations.DMS.lng.includes('E');
+            if (data.results && data.results.length > 0) {
+              var result = data.results[0];
+              var components = result.components;
               
-              if (isNearWater) {
-                setLocationType('tropical');
+              // Set location name
+              var city = components.city;
+              if (!city) city = components.town;
+              if (!city) city = components.village;
+              if (!city) city = components.state;
+              
+              setLocation(city || 'Unknown Location');
+              
+              // Set country code (NO optional chaining)
+              if (components.country_code) {
+                setCountryCode(components.country_code.toUpperCase());
+              }
+              
+              // Determine location type
+              if (components.city) {
+                setLocationType('city');
+              } else if (components.village || components.hamlet) {
+                setLocationType('rural');
+              } else if (components.coast || components.sea || components.ocean) {
+                setLocationType('coastal');
+              } else if (components.mountain || components.peak) {
+                setLocationType('mountains');
+              } else {
+                setLocationType('city'); // default
               }
             }
-          } else {
-            throw new Error('No results found in OpenCage response');
-          }
-        } catch (error) {
-          setStatusMessage(`Location error: ${error.message}`);
-          logError(`Error fetching location details: ${error.message}`);
-        }
-      };
-
-      const fetchWeatherData = async (lat, lon) => {
-        try {
-          setStatusMessage('Fetching weather data...');
-          const url = ensureHttps(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${openWeatherMapApiKey}`);
-          
-          const response = await fetch(url);
-          
-          if (!response.ok) {
-            throw new Error(`OpenWeatherMap API returned status ${response.status}`);
-          }
-          
-          const data = await response.json();
-          setStatusMessage('Weather data received');
-          
-          setWeatherData({
-            temp: Math.round(data.main.temp),
-            feels_like: Math.round(data.main.feels_like),
-            temp_min: Math.round(data.main.temp_min),
-            temp_max: Math.round(data.main.temp_max),
-            description: data.weather[0].description,
-            main: data.weather[0].main,
-            wind: data.wind.speed,
-            humidity: data.main.humidity,
-            icon: data.weather[0].icon
+          })
+          .catch(function(error) {
+            logDebug('Location error: ' + error.message);
+            // If location fails, we still show weather
           });
-          setLoading(false);
-          setError(null);
-          setUseDemo(false);
-        } catch (error) {
-          setStatusMessage(`Weather error: ${error.message}`);
-          logError(`Error fetching weather data: ${error.message}`);
-          setError('Error getting weather data. Using demo data instead.');
-          setLoading(false);
-        }
-      };
-
-      // Simplified getBackgroundStyle that doesn't rely as much on Tailwind classes
-      const getBackgroundStyle = () => {
-        const weatherType = weatherData?.main || 'Clear';
+      }
+      
+      function getBackgroundClass() {
+        var weatherType = weatherData ? weatherData.main : 'Clear';
         
-        // Create a simple class mapping
         if (weatherType === 'Clear') {
           if (timeOfDay === 'morning') return 'bg-morning-clear';
           if (timeOfDay === 'evening') return 'bg-evening-clear';
@@ -305,29 +491,16 @@
           return 'bg-day-clear';
         }
         
-        if (weatherType === 'Clouds' || weatherType === 'Rain' || 
-            weatherType === 'Drizzle' || weatherType === 'Mist' ||
-            weatherType === 'Fog' || weatherType === 'Haze') {
-          return 'bg-clouds';
-        }
+        if (weatherType === 'Clouds') return 'bg-clouds';
+        if (weatherType === 'Rain' || weatherType === 'Drizzle') return 'bg-rain';
         
-        // Default
-        return 'bg-blue-gradient';
-      };
-
-      if (loading) {
-        return (
-          <div className="flex items-center justify-center w-full h-full bg-blue-gradient text-white rounded-lg shadow-lg p-6">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mx-auto mb-2"></div>
-              <p>{statusMessage}</p>
-            </div>
-          </div>
-        );
+        return 'bg-day-clear'; // default
       }
-
-      const getWeatherIcon = () => {
-        const main = weatherData?.main;
+      
+      function getWeatherEmoji() {
+        if (!weatherData) return '🌤️';
+        
+        var main = weatherData.main;
         if (main === 'Clear') {
           return timeOfDay === 'night' ? '🌙' : '☀️';
         } else if (main === 'Clouds') {
@@ -344,155 +517,151 @@
           return '🌫️';
         }
         return '🌤️';
-      };
-
-      // Toggle button to switch between demo and live
-      const toggleDemoMode = () => {
+      }
+      
+      function toggleDemoMode() {
         setUseDemo(!useDemo);
-        setLoading(true); // Restart loading process
-      };
-
-      // Function to show debug panel
-      const showDebugInfo = () => {
-        const errorLog = document.getElementById('error-log');
-        errorLog.style.display = errorLog.style.display === 'block' ? 'none' : 'block';
-      };
-
+        setLoading(true);
+      }
+      
+      function toggleDebug() {
+        var console = document.getElementById('debug-console');
+        console.style.display = console.style.display === 'block' ? 'none' : 'block';
+      }
+      
+      if (loading) {
+        return (
+          <div className="loading-container">
+            <div className="loading-content">
+              <div className="spinner"></div>
+              <p>{status}</p>
+            </div>
+          </div>
+        );
+      }
+      
       return (
-        <div className={`w-full h-full ${getBackgroundStyle()} text-white rounded-lg shadow-lg overflow-hidden`}>
-          <div className="p-6 h-full flex flex-col relative glass-card">
-            {/* Demo mode toggle and debug button */}
-            <div className="absolute top-2 right-2 z-20 flex gap-2">
-              <button 
-                onClick={toggleDemoMode}
-                className="text-xs bg-black bg-opacity-30 px-2 py-1 rounded hover:bg-opacity-50"
-              >
+        <div className={"weather-container " + getBackgroundClass()}>
+          <div className="weather-content">
+            {/* Control buttons */}
+            <div className="control-panel">
+              <button className="button" onClick={toggleDemoMode}>
                 {useDemo ? "Try Live Data" : "Use Demo Data"}
               </button>
-              <button 
-                onClick={showDebugInfo}
-                className="text-xs bg-red-500 bg-opacity-30 px-2 py-1 rounded hover:bg-opacity-50"
-              >
+              <button className="button" onClick={toggleDebug}>
                 Debug
               </button>
             </div>
             
-            {/* Status message */}
-            {statusMessage && (
-              <div className="absolute top-2 left-2 z-20">
-                <span className="text-xs bg-black bg-opacity-30 px-2 py-1 rounded">{statusMessage}</span>
-              </div>
-            )}
+            {/* Status badge */}
+            {status && <div className="status-badge">{status}</div>}
             
-            {/* Location decorations based on type */}
+            {/* Location decorations */}
             {locationType === 'city' && (
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-black bg-opacity-20">
-                <div className="w-full h-full flex items-end justify-around">
-                  <div className="w-6 h-12 bg-white bg-opacity-20 rounded-t"></div>
-                  <div className="w-8 h-16 bg-white bg-opacity-20 rounded-t"></div>
-                  <div className="w-12 h-10 bg-white bg-opacity-20 rounded-t"></div>
-                  <div className="w-10 h-14 bg-white bg-opacity-20 rounded-t"></div>
-                  <div className="w-7 h-8 bg-white bg-opacity-20 rounded-t"></div>
+              <div className="city-decoration">
+                <div className="city-buildings">
+                  <div className="building" style={{width: '24px', height: '48px'}}></div>
+                  <div className="building" style={{width: '32px', height: '64px'}}></div>
+                  <div className="building" style={{width: '48px', height: '40px'}}></div>
+                  <div className="building" style={{width: '40px', height: '56px'}}></div>
+                  <div className="building" style={{width: '28px', height: '32px'}}></div>
                 </div>
               </div>
             )}
             
             {locationType === 'mountains' && (
-              <div className="absolute bottom-0 left-0 right-0 h-20 flex items-end">
-                <div className="w-full h-full flex items-end">
-                  <div className="w-1/3 h-20 bg-white bg-opacity-10 clip-triangle transform translate-y-2"></div>
-                  <div className="w-1/4 h-16 bg-white bg-opacity-10 clip-triangle transform -translate-x-8"></div>
-                  <div className="w-1/2 h-12 bg-white bg-opacity-10 clip-triangle transform -translate-x-16 translate-y-4"></div>
+              <div className="mountain-decoration">
+                <div className="mountains">
+                  <div className="mountain" style={{width: '33%', height: '80px', transform: 'translateY(8px)'}}></div>
+                  <div className="mountain" style={{width: '25%', height: '64px', transform: 'translateX(-32px)'}}></div>
+                  <div className="mountain" style={{width: '50%', height: '48px', transform: 'translateX(-64px) translateY(16px)'}}></div>
                 </div>
               </div>
             )}
             
             {locationType === 'coastal' && (
-              <div className="absolute bottom-0 left-0 right-0 h-12">
-                <div className="w-full h-full flex items-end">
-                  <div className="w-full h-6 bg-white bg-opacity-20 rounded-t-full"></div>
-                </div>
+              <div className="coastal-decoration">
+                <div className="wave"></div>
               </div>
             )}
             
             {/* Header with location */}
-            <div className="flex items-center justify-between mb-2 z-10">
-              <div className="flex items-center">
-                <MapPin className="h-5 w-5 mr-1" />
-                <h2 className="text-2xl font-bold">{location || 'Weather'}</h2>
-                {countryCode && <span className="ml-1 text-sm bg-white bg-opacity-20 px-1 rounded">{countryCode}</span>}
+            <div className="location-header">
+              <div className="location-name">
+                <span>📍</span>
+                <h2>{location || 'Weather'}</h2>
+                {countryCode && <span className="country-badge">{countryCode}</span>}
               </div>
-              <div className="flex items-center text-sm">
-                <span>{weatherData?.description || 'Weather data'}</span>
+              <div>
+                <span>{weatherData ? weatherData.description : 'Weather data'}</span>
               </div>
             </div>
             
             {/* Main temperature display */}
-            <div className="flex-1 flex items-center justify-center z-10">
-              <div className="flex items-center">
-                <span className="text-6xl mr-4">{getWeatherIcon()}</span>
-                <div className="text-7xl font-bold flex items-start">
-                  {weatherData?.temp || '--'}
-                  <span className="text-3xl mt-1">°C</span>
+            <div className="temp-display">
+              <div className="temp-display-inner">
+                <span className="weather-icon">{getWeatherEmoji()}</span>
+                <div className="temp-value">
+                  {weatherData ? weatherData.temp : '--'}
+                  <span className="temp-unit">°C</span>
                 </div>
               </div>
             </div>
             
             {/* Weather details */}
-            <div className="grid grid-cols-4 gap-2 mt-2 z-10">
-              <div className="flex flex-col items-center glass-card p-2">
-                <div className="flex items-center text-sm mb-1">
-                  <Thermometer className="h-4 w-4 mr-1" />
+            <div className="weather-details">
+              <div className="weather-detail-card glass-card">
+                <div className="detail-header">
+                  <span>🌡️</span>
                   <span>Feels</span>
                 </div>
-                <span className="font-bold">{weatherData?.feels_like || '--'}°C</span>
+                <span className="detail-value">{weatherData ? weatherData.feels_like : '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center glass-card p-2">
-                <div className="flex items-center text-sm mb-1">
-                  <Sun className="h-4 w-4 mr-1" />
+              <div className="weather-detail-card glass-card">
+                <div className="detail-header">
+                  <span>⬆️</span>
                   <span>High</span>
                 </div>
-                <span className="font-bold">{weatherData?.temp_max || '--'}°C</span>
+                <span className="detail-value">{weatherData ? weatherData.temp_max : '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center glass-card p-2">
-                <div className="flex items-center text-sm mb-1">
-                  <Droplets className="h-4 w-4 mr-1" />
+              <div className="weather-detail-card glass-card">
+                <div className="detail-header">
+                  <span>⬇️</span>
                   <span>Low</span>
                 </div>
-                <span className="font-bold">{weatherData?.temp_min || '--'}°C</span>
+                <span className="detail-value">{weatherData ? weatherData.temp_min : '--'}°C</span>
               </div>
               
-              <div className="flex flex-col items-center glass-card p-2">
-                <div className="flex items-center text-sm mb-1">
-                  <Wind className="h-4 w-4 mr-1" />
+              <div className="weather-detail-card glass-card">
+                <div className="detail-header">
+                  <span>💨</span>
                   <span>Wind</span>
                 </div>
-                <span className="font-bold">{weatherData?.wind || '--'} m/s</span>
+                <span className="detail-value">{weatherData ? weatherData.wind : '--'} m/s</span>
               </div>
             </div>
             
-            {/* Error message if any */}
-            {error && (
-              <div className="absolute bottom-4 left-4 right-4 bg-red-500 bg-opacity-80 text-white p-2 rounded z-20 text-sm">
-                {error}
-              </div>
-            )}
+            {/* Error message */}
+            {error && <div className="error-message">{error}</div>}
           </div>
         </div>
       );
-    };
-
+    }
+    
+    // Render the app with error handling
     try {
       ReactDOM.render(<WeatherWidget />, document.getElementById('root'));
     } catch (error) {
-      logError(`Render error: ${error.message}`);
+      debug('Render error: ' + error.message);
       document.getElementById('root').innerHTML = `
         <div style="padding: 20px; color: white; background: #e63946; border-radius: 8px;">
           <h2>Error Loading Weather Widget</h2>
           <p>${error.message}</p>
-          <p>Please check the browser console for more details.</p>
+          <button onclick="document.getElementById('debug-console').style.display='block'">
+            Show Debug Info
+          </button>
         </div>
       `;
     }
