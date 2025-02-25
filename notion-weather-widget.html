@@ -59,7 +59,7 @@
       const fetchLocationName = async (lat, lon) => {
         try {
           // Replace with your OpenCage API key
-          const opencageApiKey = 'YOUR_OPENCAGE_API_KEY';
+          const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc';
           const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${opencageApiKey}`);
           const data = await response.json();
           
@@ -78,7 +78,7 @@
       const fetchWeatherData = async (lat, lon) => {
         try {
           // Replace with your OpenWeatherMap API key
-          const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY';
+          const apiKey = 'f5aa6727832f8af0e6b896eca32ed755';
           const response = await fetch(
             `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`
           );
