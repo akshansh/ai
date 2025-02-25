@@ -1,10 +1,11 @@
 let particles = [];
 let textPoints = [];
 let font;
-let message = "Learn. Share. Repeat.";
-let fontSize = 32;
-let repelRadius = 100;
-let repelStrength = 10;
+let message = "Akshansh";
+let fontSize = 72; // Much larger font size
+let repelRadius = 120;
+let repelStrength = 12;
+let sampleFactor = 0.15; // Lower for more points/detail
 
 function preload() {
   // Load a bold font for better text point extraction
@@ -18,15 +19,27 @@ function setup() {
   textSize(fontSize);
   textAlign(CENTER, CENTER);
   
+  // Extract points from the text
+  createTextPoints();
+}
+
+function createTextPoints() {
+  // Clear previous particles
+  particles = [];
+  
   // Get the points that make up the text
-  let textWidth = width * 0.8; // Limit text width to 80% of canvas
   let options = {
-    sampleFactor: 0.3, // Increase for more detailed points
+    sampleFactor: sampleFactor, // More detailed points
     simplifyThreshold: 0.0
   };
   
+  // Center the text
+  let bounds = font.textBounds(message, 0, 0, fontSize);
+  let x = width/2 - bounds.w/2;
+  let y = height/2 + bounds.h/4; // Adjust for baseline
+  
   // Get the points from the text
-  textPoints = font.textToPoints(message, width/2 - textWidth/2, height/2, fontSize, options);
+  textPoints = font.textToPoints(message, x, y, fontSize, options);
   
   // Create a particle for each point in the text
   for (let i = 0; i < textPoints.length; i++) {
@@ -35,20 +48,12 @@ function setup() {
     particles.push(particle);
   }
   
-  // Add some extra particles to fill the space
-  for (let i = 0; i < 200; i++) {
-    let particle = new Particle(random(width), random(height));
-    particles.push(particle);
-  }
+  // Log the number of particles to confirm density
+  console.log("Number of particles:", particles.length);
 }
 
 function draw() {
   background(15, 15, 26, 10); // Slight transparency for trails effect
-  
-  // Draw the text as a reference (slightly visible under particles)
-  fill(30, 30, 50, 50);
-  noStroke();
-  text(message, width/2, height/2);
   
   // Update and display particles
   for (let particle of particles) {
@@ -71,21 +76,7 @@ function draw() {
 // Resize the canvas when the window is resized
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  
-  // Recalculate text points
-  let textWidth = width * 0.8;
-  let options = {
-    sampleFactor: 0.3,
-    simplifyThreshold: 0.0
-  };
-  
-  textPoints = font.textToPoints(message, width/2 - textWidth/2, height/2, fontSize, options);
-  
-  // Update particle target positions
-  for (let i = 0; i < textPoints.length && i < particles.length; i++) {
-    particles[i].target.x = textPoints[i].x;
-    particles[i].target.y = textPoints[i].y;
-  }
+  createTextPoints(); // Recalculate text points
 }
 
 class Particle {
@@ -94,17 +85,10 @@ class Particle {
     this.target = createVector(x, y);
     this.vel = p5.Vector.random2D().mult(random(0.5, 2));
     this.acc = createVector();
-    this.r = random(2, 5);
-    this.maxSpeed = random(1, 3);
-    this.maxForce = random(0.1, 0.5);
-    this.isTextParticle = textPoints.some(pt => pt.x === x && pt.y === y);
-    
-    // Different colors for text particles vs. background particles
-    if (this.isTextParticle) {
-      this.color = color(100, 150, 255, 200); // Blue for text particles
-    } else {
-      this.color = color(255, 100, 100, 150); // Red for background particles
-    }
+    this.r = random(3, 6); // Slightly larger particles
+    this.maxSpeed = random(2, 4);
+    this.maxForce = random(0.2, 0.6);
+    this.color = color(100, 150, 255, 200); // Blue color for all particles
   }
   
   applyForce(force) {
@@ -151,11 +135,5 @@ class Particle {
     // Draw particle
     fill(red(this.color), green(this.color), blue(this.color), alpha);
     ellipse(this.pos.x, this.pos.y, size, size);
-    
-    // Optional: draw a subtle connection line to the target for text particles
-    if (this.isTextParticle && d < 50) {
-      stroke(red(this.color), green(this.color), blue(this.color), 20);
-      line(this.pos.x, this.pos.y, this.target.x, this.target.y);
-    }
   }
 }
