@@ -1,4 +1,4 @@
-# Interactive Particle Text - "Learn. Share. Repeat."
+# Interactive Particle Text - "Akshansh"
 
 An interactive P5.js visualization where particles reveal the text "Learn. Share. Repeat." as you hover your mouse over them.
 
