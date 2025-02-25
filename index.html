@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Location Weather Widget</title>
+  <title>Notion Weather Widget</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
@@ -33,13 +33,13 @@
     const { useState, useEffect } = React;
     const { Cloud, Thermometer, Sun, Droplets, MapPin, Wind } = window.LucideReact;
     
-    // Directly insert your API keys here (or leave as is for demo mode)
-    const openWeatherMapApiKey = 'f5aa6727832f8af0e6b896eca32ed755'; // Replace with your actual OpenWeatherMap API key
-    const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc'; // Replace with your actual OpenCage API key
+    // API keys
+    const openWeatherMapApiKey = 'f5aa6727832f8af0e6b896eca32ed755';
+    const opencageApiKey = '0af25ade0fe24adea501d091fe8c04fc';
 
     const WeatherWidget = () => {
-      // Set useDemo to true to use demo data without API calls
-      const [useDemo, setUseDemo] = useState(true);
+      // Set useDemo to false to use real API calls by default
+      const [useDemo, setUseDemo] = useState(false);
       
       const [weatherData, setWeatherData] = useState(null);
       const [location, setLocation] = useState('');
